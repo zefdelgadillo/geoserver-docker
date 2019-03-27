@@ -1,59 +1,77 @@
-apiVersion: apps/v1
-kind: StatefulSet
+---
+apiVersion: "v1"
+kind: "ConfigMap"
 metadata:
-  name: geoserver-ss
+  name: "geoserver-config"
+  namespace: "default"
+  labels:
+    app: "geoserver"
+data:
+  BIGTABLE_INSTANCE: "geomesa"
+  BIGTABLE_PROJECT: "cdot-daisy-internal"
+---
+apiVersion: "extensions/v1beta1"
+kind: "Deployment"
+metadata:
+  name: "geoserver"
+  namespace: "default"
+  labels:
+    app: "geoserver"
 spec:
-  serviceName: geoserver-svc
-  replicas: 2
-  updateStrategy:
-    type: RollingUpdate
+  replicas: 1
   selector:
     matchLabels:
-      app: geoserver
+      app: "geoserver"
   template:
     metadata:
       labels:
-        app: geoserver
+        app: "geoserver"
     spec:
+      volumes:
+      - name: google-cloud-key
+        secret:
+          secretName: bigtable-key
+      - name: geoserver-volume
+        persistentVolumeClaim:
+          claimName: geoserver-volume
       containers:
-      - name: geoserver
-        image: gcr.io/cdot-daisy-internal/geoserver
+      - name: "geoserver"
+        image: "gcr.io/cdot-daisy-internal/geoserver"
         env:
-        - name: BIGTABLE_INSTANCE
-          value: geomesa
-        - name: BIGTABLE_PROJECT
-          value: cdot-daisy-internal
-        # - name: GEOSERVER_DATA_DIR
-        #   value: /mnt/data_dir
+        - name: "BIGTABLE_INSTANCE"
+          valueFrom:
+            configMapKeyRef:
+              key: "BIGTABLE_INSTANCE"
+              name: "geoserver-config"
+        - name: "BIGTABLE_PROJECT"
+          valueFrom:
+            configMapKeyRef:
+              key: "BIGTABLE_PROJECT"
+              name: "geoserver-config"
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
         volumeMounts:
         - name: google-cloud-key
           mountPath: /var/secrets/google
         - name: geoserver-volume
-          mountPath: /mnt/data_dir
-        ports:
-        - name: http
-          containerPort: 8080
-        # livenessProbe:
-        #   httpGet:
-        #     path: /geoserver
-        #     port: 8080
-        #   initialDelaySeconds: 6
-        #   periodSeconds: 3
-        resources:
-          limits:
-            memory: "500Mi"
-            cpu: "500m"
-      volumes:
-      - name: google-cloud-key
-        secret:
-          secretName: bigtable-key
-  volumeClaimTemplates:
-  - metadata:
-      name: geoserver-volume
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 50Gi
+          mountPath: /usr/share/geoserver/data_dir
+---
+apiVersion: "autoscaling/v2beta1"
+kind: "HorizontalPodAutoscaler"
+metadata:
+  name: "geoserver-hpa"
+  namespace: "default"
+  labels:
+    app: "geoserver"
+spec:
+  scaleTargetRef:
+    kind: "Deployment"
+    name: "geoserver"
+    apiVersion: "apps/v1beta1"
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: "Resource"
+    resource:
+      name: "cpu"
+      targetAverageUtilization: 80
