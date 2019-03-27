@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: geoserver-ss
+spec:
+  serviceName: geoserver-svc
+  replicas: 2
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: geoserver
+  template:
+    metadata:
+      labels:
+        app: geoserver
+    spec:
+      containers:
+      - name: geoserver
+        image: gcr.io/cdot-daisy-internal/geoserver
+        env:
+        - name: BIGTABLE_INSTANCE
+          value: geomesa
+        - name: BIGTABLE_PROJECT
+          value: cdot-daisy-internal
+        # - name: GEOSERVER_DATA_DIR
+        #   value: /mnt/data_dir
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /var/secrets/google/key.json
+        volumeMounts:
+        - name: google-cloud-key
+          mountPath: /var/secrets/google
+        - name: geoserver-volume
+          mountPath: /mnt/data_dir
+        ports:
+        - name: http
+          containerPort: 8080
+        # livenessProbe:
+        #   httpGet:
+        #     path: /geoserver
+        #     port: 8080
+        #   initialDelaySeconds: 6
+        #   periodSeconds: 3
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+      volumes:
+      - name: google-cloud-key
+        secret:
+          secretName: bigtable-key
+  volumeClaimTemplates:
+  - metadata:
+      name: geoserver-volume
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi

@@ -2,6 +2,7 @@ FROM openjdk:8-jre
 MAINTAINER zef.delgadillo@gmail.com
 
 ENV GEOSERVER_HOME="/usr/share/geoserver"
+ENV GEOSERVER_DATA_DIR="/usr/share/geoserver/data_dir"
 ENV GEOSERVER_VERSION="2.14.2"
 ENV GEOMESA_VERSION="2.2.1"
 
@@ -34,10 +35,12 @@ RUN cp lib/hadoop-annotations-*.jar /usr/share/geoserver/webapps/geoserver/WEB-I
     && cp lib/hbase-protocol-*.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
 
 RUN cp conf/hbase-site.xml /usr/share/geoserver/webapps/geoserver/WEB-INF/classes
+COPY config/web.xml /usr/share/geoserver-2.14.2/webapps/geoserver/WEB-INF/
 
 WORKDIR /usr/share/geoserver
 RUN mkdir -p /usr/share/tmp
-COPY entrypoint.sh /usr/share/tmp
+COPY entrypoint.sh /usr/share/tmp 
 RUN chmod +x /usr/share/tmp/entrypoint.sh
 
+VOLUME "/usr/share/geoserver/data_dir"
 CMD ["/usr/share/tmp/entrypoint.sh"]
