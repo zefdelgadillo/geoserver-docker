@@ -15,6 +15,7 @@ RUN ln -s geoserver-$GEOSERVER_VERSION geoserver
 WORKDIR /opt
 RUN wget "https://github.com/locationtech/geomesa/releases/download/geomesa_2.11-$GEOMESA_VERSION/geomesa-bigtable_2.11-$GEOMESA_VERSION-bin.tar.gz"
 RUN tar xvf geomesa-bigtable_2.11-$GEOMESA_VERSION-bin.tar.gz
+RUN ln -s geomesa-bigtable_2.11-$GEOMESA_VERSION geomesa-bigtable
 WORKDIR /opt/geomesa-bigtable_2.11-$GEOMESA_VERSION
 RUN tar xvf dist/gs-plugins/geomesa-bigtable-gs-plugin_2.11-$GEOMESA_VERSION-install.tar.gz -C /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
 RUN bin/install-hadoop-hbase.sh
@@ -34,6 +35,12 @@ RUN cp lib/hadoop-annotations-*.jar /usr/share/geoserver/webapps/geoserver/WEB-I
     && cp lib/hbase-procedure-*.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib \
     && cp lib/hbase-protocol-*.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
 
+# Stealth steps
+COPY apps/stealth-webapp-3.2.0-20181019.232537-10.war /opt/
+RUN mkdir stealth && unzip -d stealth /opt/stealth-webapp-3.2.0-20181019.232537-10.war
+RUN cp -r stealth/ /usr/share/geoserver/webapps/
+
+# Configuration steps
 RUN cp conf/hbase-site.xml /usr/share/geoserver/webapps/geoserver/WEB-INF/classes
 COPY config/web.xml /usr/share/geoserver-2.14.2/webapps/geoserver/WEB-INF/
 
@@ -42,5 +49,5 @@ RUN mkdir -p /usr/share/tmp
 COPY entrypoint.sh /usr/share/tmp 
 RUN chmod +x /usr/share/tmp/entrypoint.sh
 
-VOLUME "/usr/share/geoserver/data_dir"
+VOLUME /usr/share/geoserver/data_dir
 CMD ["/usr/share/tmp/entrypoint.sh"]

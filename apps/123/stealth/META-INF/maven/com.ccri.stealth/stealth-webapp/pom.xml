@@ -1,0 +1,1547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.ccri.stealth</groupId>
+        <artifactId>stealth</artifactId>
+        <version>3.2.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>stealth-webapp</artifactId>
+    <packaging>war</packaging>
+
+    <properties>
+        <!-- In this pom in order to override the property in commons-war-security-profiles -->
+        <commons-war.version>${commons.war.version}</commons-war.version>
+        <external.auth.version>${external-auth.version}</external.auth.version>
+    </properties>
+
+    <build>
+        <finalName>${app.context}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/resources-filter</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>clean-bundles</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <filesets>
+                                <fileset>
+                                    <directory>src/main/ui/bundles</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-resources</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/non-packaged-resources</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/non-packaged-resources-filter</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-war-plugin</artifactId>
+                <configuration>
+                    <classifier>${stealth.classifier}</classifier>
+                    <webResources>
+                        <resource>
+                            <directory>src/main/webapp-filter</directory>
+                            <filtering>true</filtering>
+                        </resource>
+                    </webResources>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-war</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>exploded</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.mortbay.jetty</groupId>
+                <artifactId>jetty-maven-plugin</artifactId>
+                <version>${jetty.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-ajp</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-server</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <stopKey>foo</stopKey>
+                    <stopPort>${jetty.stopPort}</stopPort>
+                    <useTestScope>true</useTestScope>
+                    <useTestClasspath>true</useTestClasspath>
+                    <scanIntervalSeconds>10</scanIntervalSeconds>
+                    <webApp>
+                        <contextPath>${app.context.path}</contextPath>
+                        <baseResource implementation="org.eclipse.jetty.util.resource.ResourceCollection">
+                            <resourcesAsCSV>${project.build.directory}/${project.build.finalName}</resourcesAsCSV>
+                        </baseResource>
+                        <maxFormContentSize>500000</maxFormContentSize>
+                        <allowDuplicateFragmentNames>true</allowDuplicateFragmentNames>
+                    </webApp>
+                    <connectors>
+                        <connector implementation="org.eclipse.jetty.ajp.Ajp13SocketConnector">
+                            <port>${jetty.ajp.port}</port>
+                        </connector>
+                        <connector implementation="org.eclipse.jetty.server.nio.SelectChannelConnector">
+                            <port>${jetty.port}</port>
+                            <maxIdleTime>60000</maxIdleTime>
+                        </connector>
+                        <!-- Look at src/test/resources/certs.sh for how these stores and client certs are created. -->
+                        <connector implementation="org.eclipse.jetty.server.ssl.SslSelectChannelConnector">
+                            <port>${jetty.ssl.port}</port>
+                            <maxIdleTime>60000</maxIdleTime>
+                            <keystore>${security.keystore.path}</keystore>
+                            <keystoreType>${security.keystore.type}</keystoreType>
+                            <password>${security.keystore.password}</password>
+                            <keyPassword>${security.keystore.keyPassword}</keyPassword>
+                            <truststore>${security.truststore.path}</truststore>
+                            <trustPassword>${security.truststore.password}</trustPassword>
+                            <wantClientAuth>false</wantClientAuth>
+                            <needClientAuth>true</needClientAuth>
+                        </connector>
+                    </connectors>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                    <runOnlyOnce>false</runOnlyOnce>
+                    <verbose>false</verbose>
+                    <dateFormat>yyyy-MM-dd'T'HH:mm:ssZ</dateFormat>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>${project.build.directory}/${project.build.finalName}/git.properties</generateGitPropertiesFilename>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>a-webpack-build</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <echo>**** WEBPACK ****</echo>
+                                <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" resultproperty="cmdresult">
+                                    <arg line="/c ${uidir.pathname}/nodejs/npm.cmd run ${webpack.build.command} -- --env.project=${ui.project}" />
+                                </exec>
+                                <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" resultproperty="cmdresult">
+                                    <arg line="-c '${nodejs.local.dir}/bin/node ${nodejs.local.dir}/lib/node_modules/npm/bin/npm-cli.js run ${webpack.build.command} -- --env.project=${ui.project}'" />
+                                </exec>
+                                <condition property="cmdsuccess">
+                                    <equals arg1="${cmdresult}" arg2="0" />
+                                </condition>
+                                <fail unless="cmdsuccess" />
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>grunt-build</id>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <target>
+                                <echo>**** GRUNT ****</echo>
+                                <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" resultproperty="cmdresult">
+                                    <arg line="/c node.exe ${uidir.pathname}/node_modules/grunt-cli/bin/grunt --force ${grunt.target} ${grunt.skipKarma} --project=${ui.project}" />
+                                </exec>
+                                <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" resultproperty="cmdresult">
+                                    <arg line="-c '${nodejs.local.dir}/bin/node ${uidir.pathname}/node_modules/grunt-cli/bin/grunt ${grunt.target} ${grunt.skipKarma} --project=${ui.project}'" />
+                                </exec>
+
+                                <condition property="cmdsuccess">
+                                    <equals arg1="${cmdresult}" arg2="0" />
+                                </condition>
+                                <fail unless="cmdsuccess" />
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.repaint.maven</groupId>
+                <artifactId>tiles-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <tiles>
+                        <!-- Provides spring security profiles -->
+                        <tile>com.ccri.commons:commons-war-security-profiles:${commons.war.version}</tile>
+                    </tiles>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ccri.commons</groupId>
+            <artifactId>commons-scalatra-webapp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.ccri.commons</groupId>
+            <artifactId>commons-war-cors</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-config</artifactId>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>install-nodejs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>clean-nodejs</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>${nodejs.local.dir}</directory>
+                                        </fileset>
+                                        <fileset>
+                                            <directory>${uidir.pathname}</directory>
+                                            <includes>
+                                                <include>node.exe</include>
+                                            </includes>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>extract-nodejs</id>
+                                <phase>initialize</phase>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <outputDirectory>${uidir.pathname}</outputDirectory>
+                                            <groupId>nodejs</groupId>
+                                            <artifactId>node</artifactId>
+                                            <classifier>${nodejs.classifier}</classifier>
+                                            <type>zip</type>
+                                            <includes>node-v*/**</includes>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>nodejs-rename</id>
+                                <phase>generate-sources</phase>
+                                <configuration>
+                                    <target>
+                                        <move file="${uidir.pathname}/node-${nodejs.version}-${nodejs.classifier}" tofile="${nodejs.local.dir}" failonerror="false" />
+                                        <chmod dir="${nodejs.local.dir}" includes="**/bin/*" perm="755" />
+                                        <copy file="${nodejs.local.dir}/node.exe" tofile="${uidir.pathname}/node.exe" overwrite="true" failonerror="false" />
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>pack-npm</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>clean-npm</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>src/main/ui/node_modules</directory>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>make-assembly-npm</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/npm.xml</descriptor>
+                                    </descriptors>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>npm-install</id>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <target>
+                                        <!-- We needed the cache clearing once when a dep released a corrupt version. -->
+                                        <!-- However, it's a huge waste of time to download everything for every pack-npm build. -->
+                                        <!--echo>**** NPM CACHE CLEAR ****</echo>
+                                        <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" failonerror="true">
+                                            <arg line="/c ${uidir.pathname}/nodejs/npm.cmd cache clear" />
+                                        </exec>
+                                        <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" failonerror="true">
+                                            <arg line="-c '${nodejs.local.dir}/bin/node ${nodejs.local.dir}/lib/node_modules/npm/bin/npm-cli.js cache clear'" />
+                                        </exec-->
+                                        <echo>**** NPM INSTALL ****</echo>
+                                        <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" failonerror="true">
+                                            <arg line="/c ${uidir.pathname}/nodejs/npm.cmd install" />
+                                        </exec>
+                                        <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" failonerror="true">
+                                            <arg line="-c '${nodejs.local.dir}/bin/node ${nodejs.local.dir}/lib/node_modules/npm/bin/npm-cli.js install'" />
+                                        </exec>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>pack-bower</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>clean-bower</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>src/main/ui/vendor/bower</directory>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>make-assembly-bower</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/bower.xml</descriptor>
+                                    </descriptors>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>bower-install</id>
+                                <phase>generate-resources</phase>
+                                <configuration>
+                                    <target>
+                                        <!--echo>**** BOWER CACHE CLEAN ****</echo>
+                                        <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" failonerror="true">
+                                            <arg line="/c node.exe ${uidir.pathname}/node_modules/bower/bin/bower cache clean" />
+                                        </exec>
+                                        <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" failonerror="true">
+                                            <arg line="-c '${nodejs.local.dir}/bin/node ${uidir.pathname}/node_modules/bower/bin/bower cache clean'" />
+                                        </exec-->
+                                        <echo>**** BOWER INSTALL ****</echo>
+                                        <exec executable="cmd" dir="${uidir.pathname}" osfamily="windows" failonerror="true">
+                                            <arg line="/c node.exe ${uidir.pathname}/node_modules/bower/bin/bower install" />
+                                        </exec>
+                                        <exec executable="bash" dir="${uidir.pathname}" osfamily="unix" failonerror="true">
+                                            <arg line="-c '${nodejs.local.dir}/bin/node ${uidir.pathname}/node_modules/bower/bin/bower install'" />
+                                        </exec>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>unpack-npm</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>clean-npm</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>src/main/ui/node_modules</directory>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>extract-npm-dependencies</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <outputDirectory>src/main/ui</outputDirectory>
+                                            <groupId>com.ccri.stealth</groupId>
+                                            <artifactId>stealth-webapp</artifactId>
+                                            <classifier>npm</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                        <artifactItem>
+                                            <outputDirectory>${uidir.pathname}/node_modules/karma-phantomjs-launcher/node_modules/phantomjs-prebuilt/lib</outputDirectory>
+                                            <groupId>phantomjs</groupId>
+                                            <artifactId>phantomjs</artifactId>
+                                            <classifier>${phantomjs.classifier}</classifier>
+                                            <type>zip</type>
+                                            <includes>phantomjs-*/**</includes>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>phantomjs-rename</id>
+                                <phase>process-resources</phase>
+                                <configuration>
+                                    <target>
+                                        <move file="${uidir.pathname}/node_modules/karma-phantomjs-launcher/node_modules/phantomjs-prebuilt/lib/phantomjs-${phantomjs.version}-${phantomjs.classifier}" tofile="${phantomjs.local.dir}" />
+                                        <chmod dir="${uidir.pathname}/node_modules" includes="**/bin/*" perm="755" />
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>unpack-bower</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>clean-bower</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>src/main/ui/vendor/bower</directory>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>extract-bower-dependencies</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>unpack</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <outputDirectory>src/main/ui/vendor</outputDirectory>
+                                            <groupId>com.ccri.stealth</groupId>
+                                            <artifactId>stealth-webapp</artifactId>
+                                            <classifier>bower</classifier>
+                                            <type>zip</type>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>production</id>
+            <properties>
+                <grunt.target>--target=production</grunt.target>
+                <webpack.build.command>webpack:prod</webpack.build.command>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>debug</id>
+            <properties>
+                <grunt.target>--target=debug</grunt.target>
+                <app.debugBuild>true</app.debugBuild>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>skipKarma</id>
+            <properties>
+                <grunt.skipKarma>--skipKarma=true</grunt.skipKarma>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>standalone</id>
+            <dependencies>
+                <!-- Overlay stealth war with this war, which includes the Runner and its dependencies -->
+                <dependency>
+                    <groupId>com.ccri.commons</groupId>
+                    <artifactId>commons-war-standalone</artifactId>
+                    <type>war</type>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>config-placement</id>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <tasks>
+                                        <copy todir="${project.build.directory}/${project.build.finalName}/">
+                                            <fileset dir="${project.build.directory}/classes/">
+                                                <include name="reference.conf" />
+                                            </fileset>
+                                        </copy>
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>ajp-auth</id>
+            <!-- The rest of this profile comes from commons-war-security-profiles -->
+            <properties>
+                <web.xml.login-config>&lt;login-config&gt;&lt;/login-config&gt;</web.xml.login-config>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>expire</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ccri.commons</groupId>
+                    <artifactId>commons-scalatra-expiration</artifactId>
+                </dependency>
+            </dependencies>
+            <properties>
+                <scalatra.bootstrap>com.ccri.commons.scalatra.expiration.ScalatraBootstrapWithExpiration</scalatra.bootstrap>
+                <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss</maven.build.timestamp.format>
+                <build.timestamp>${maven.build.timestamp}</build.timestamp>
+                <build.expiration>1999-12-31 23:59:59</build.expiration>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/expire</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>io.probedock.maven.plugins</groupId>
+                        <artifactId>probedock-uuid-maven-plugin</artifactId>
+                        <version>0.0.1</version>
+                        <executions>
+                            <execution>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>generate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <propertyName>build.id</propertyName>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.kuali.maven.plugins</groupId>
+                        <artifactId>properties-maven-plugin</artifactId>
+                        <version>1.1.9</version>
+                        <executions>
+                            <execution>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>encrypt</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <password>${build.id}</password>
+                            <properties>
+                                <property>build.expiration</property>
+                            </properties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Deployment-specific profiles for production systems -->
+        <profile>
+            <id>thresher</id>
+            <properties>
+                <ui.project>thresher</ui.project>
+                <stealth.classifier>thresher</stealth.classifier>
+                <app.context>thresher</app.context>
+                <app.title>Thresher</app.title>
+                <app.showSplash>true</app.showSplash>
+                <app.splashUrl>webjars/thresher/splash.ssp</app.splashUrl>
+                <app.customModes>
+                {
+                    fvey: {
+                        header: "User-Requested-Authorizations",
+                        authorization: "U,C",
+                        banner: {
+                            text: "FVEY Mode",
+                            background: "#f16b35",
+                            color: "#ff0"
+                        }
+                        warning: "You are entering FVEY VIEWING mode. While there are many security protocols in place you must still accept responsibility to comply with applicable security policies. Please send a screen shot and email to &lt;a href=\"mailto:thresher@ccri.com\"&gt;thresher@ccri.com&lt;/a&gt; if you see any discrepancies in classification. Are you sure you want to proceed?"
+                    }
+
+                }
+                </app.customModes>
+                <app.plugins>
+                    [
+                        'stealth.air',
+                        'stealth.bullseye',
+                        'stealth.fvey-mode',
+                        'stealth.geoarea',
+                        'stealth.legend',
+                        'stealth.query-edit',
+                        'stealth.route-search',
+                        'stealth.savedqueries',
+                        'stealth.search',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse',
+                        'stealth.geo.timelapse.timelapseHistory',
+                        'stealth.mediator.air-timelapse',
+                        'stealth.mediator.savedqueries-timelapse'
+                    ]
+                </app.plugins>
+                <air.lookupCacheEnabled>false</air.lookupCacheEnabled>
+                <map.initLayers>[]</map.initLayers>
+                <map.extraLayers>[]</map.extraLayers>
+                <map.click.search.strategy>nearest-fixed-1</map.click.search.strategy>
+                <map.scaleLineUnits>["nautical", "metric", "imperial"]</map.scaleLineUnits>
+                <measure.maxPointsForLineString>2</measure.maxPointsForLineString>
+                <measure.maxMeasurementsAtOnce>1</measure.maxMeasurementsAtOnce>
+                <select.selectToolsEnabled>false</select.selectToolsEnabled>
+                <geoserver.url>/geoserver</geoserver.url>
+                <security.accessDeniedUrl>webjars/thresher/public/access.ssp</security.accessDeniedUrl>
+                <thresher.webjar.version>2.24.0</thresher.webjar.version>
+                <timelapse.largeTimeRangeWarning.message>Warning: queries longer than ${DURATION} may fail when coupled with very large search areas and limited additional filters.</timelapse.largeTimeRangeWarning.message>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.ccri.thresher</groupId>
+                    <artifactId>thresher-webjar</artifactId>
+                    <version>${thresher.webjar.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>bd</id>
+            <properties>
+                <stealth.classifier>bd</stealth.classifier>
+                <app.context>bd</app.context>
+                <app.title>Black Diamond</app.title>
+                <app.showSplash>false</app.showSplash>
+                <app.customModes>
+                {
+                    fvey: {
+                        header: "User-Requested-Authorizations",
+                        authorization: "U,C",
+                        banner: {
+                            text: "FVEY Mode",
+                            background: "#f16b35",
+                            color: "#ff0"
+                        }
+                    }
+                }
+                </app.customModes>
+                <ogc.configs>
+                    [{
+                        id: "ncloud",
+                        url: "http://nc-web.ccri.com:8090/geoserver",
+                        title: "NCloud",
+                        primary: false
+                    },
+                    {
+                        id: "BlackDiamond",
+                        url: "/geoserver",
+                        title: "BlackDiamond",
+                        primary: false
+                    },
+                    {
+                        id: "Optix",
+                        url: "cors/http://bd.optix.earth/geoserver",
+                        title: "Optix",
+                        primary: true
+                    }]
+                </ogc.configs>
+                <app.plugins>
+                    [
+                        'stealth.fvey-mode',
+                        'stealth.display',
+                        'stealth.display-dock',
+                        'stealth.geoarea',
+                        'stealth.legend',
+                        'stealth.orion',
+                        'stealth.query-edit',
+                        'stealth.savedqueries',
+                        'stealth.search',
+                        'stealth.hover',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse',
+                        'stealth.geo.timelapse.timelapseHistory',
+                        'stealth.mediator.savedqueries-timelapse'
+                    ]
+                </app.plugins>
+                <map.initLayers>[]</map.initLayers>
+                <map.extraLayers>[]</map.extraLayers>
+                <map.click.search.strategy>nearest-fixed-1</map.click.search.strategy>
+                <map.scaleLineUnits>["nautical", "metric", "imperial"]</map.scaleLineUnits>
+                <measure.maxPointsForLineString>2</measure.maxPointsForLineString>
+                <measure.maxMeasurementsAtOnce>1</measure.maxMeasurementsAtOnce>
+                <geoserver.url>cors/http://bd.optix.earth/geoserver</geoserver.url>
+                <query-edit.enabled>
+                    {
+                        timelapse: [
+                            "detailed"
+                        ]
+                    }
+                </query-edit.enabled>
+
+                <orion> {
+                    graphs: [
+                        {
+                            graphId: "MKBGraph",
+                            buildTLGraph: false,
+                            data: [
+                                {
+                                    name: "Marine Knowledge Base",
+                                    url: "cors/http://gpu03.ccri.com:8080/taffeta/entity/graph/search/Vessel?",
+                                    browseUrl: "cors/http://gpu03.ccri.com:8080/taffeta/types/browse",
+                                    subGraphUrl: "cors/http://gpu03.ccri.com:8080/taffeta/entity/graph/search/&lt;type&gt;",
+                                    initialData: "cors/http://gpu03.ccri.com:8080/taffeta/entity/graph/search/Medical",
+                                    data: { nodes: [], links: [] },
+                                    typesUrl: "cors/raw/http://gpu03:8080/taffeta/types/",
+                                    mapLayerNames: {
+                                       Vessel : "LVI"
+                                    }
+                                }
+                            ],
+                            graph: {
+                                options: {
+                                    nodeColorBy: { grouping: { name: "typeName", value: "typeName" }, available: ["typeName", "properties"]},
+                                    labels: {nodes: true, nodeAttr: "properties.vessel_name"},
+                                    objectLabels: {node: "Entity", Edge: "Relationship"}
+                                }
+                            },
+                            views: {
+				graph: null,
+                                table: {
+                                    name: "MKB",
+                                    activateOptions: {
+                                        itemType: "column",
+                                        alsoActivate: null,
+                                    }
+                                    options: {
+                                        attrs: ["typeName", "properties", "id"],
+                                        groupBy: "typeName",
+                                        defaultAttrs: ["typeName", "id", "properties.callsign", "properties.flag_country",  "properties.vessel_type_sub", "properties.vessel_type_main"],
+                                        defaultAttrsByGroup: null,
+					hierarchyParentProperty: null,
+                                        defaultHierarchy: false,
+                                        searchBar: {field: "flag_country"},
+					syncGraph: false,
+                                        syncMap: {sync: false},
+                                    }
+                                }
+                            },
+                            panel: {
+                                name: "MKB Controls",
+                                iconClass: "ccri-icon ccri-icon-data-search2",
+                                width: 300,
+                                sections: {
+                                    section1: {
+                                        control: {
+                                            options: {
+                                                dataSources: false,
+                                                query: false,
+                                                browse: {
+                                                    initialLevel: 2,
+                                                    levelExtent: 5,
+                                                    expand: false,
+                                                    expandable: true
+                                                },
+                                                upload: false,
+                                                layouts: false
+                                            }
+                                        }
+                                    },
+                                    section2: {
+                                        name: "Entity Controls",
+                                        class: "control-section-nodes",
+                                        expandable: true,
+                                        expand: true,
+                                        control: {
+                                            options: {
+                                                nodeIcons: null,
+                                                nodeImages: false,
+                                                cluster: false,
+                                                scaleNodes: false,
+                                                nodeSize: false,
+                                                nodeGroups: false,
+                                                nodeColorBy: { expand: true }
+                                            }
+                                        }
+                                    },
+                                    section3: false,
+                                    section4: {
+                                        control:
+                                            {
+                                                options: {
+                                                    labels: false,
+                                                    export: false
+                                                }
+                                            }
+                                    },
+                                }
+                            },
+                        }
+                    ],
+                    info: {
+                        name: "Details",
+                        displayId: "MKBSharkGraphinfo",
+                        nodeRelationshipOptions: false,
+                        edgeInfoOptions: false,
+                        nodeInfoOptions: {
+                            displayAttrs: { source: ["typeName", "id", "properties"] },
+                            controls: {
+                                        delete: false,
+                                        edit: false,
+                                        relationship: false,
+                                        remove: true,
+                                        pin: true,
+                                        map: true
+                                    },
+                        }
+                    }
+                }
+                </orion>
+
+		<display.easyButtons>
+			[
+				{
+					id: "map",
+					iconClass: "fa-binoculars",
+					tooltipText: "Tracking Display",
+					displays: ["map"],
+					sidepanelTitle: "Layer Manager"
+				},
+				{
+					id: "mkb",
+					iconClass: "ccri-icon ccri-icon-data-search2",
+					tooltipText: "Maritime Knowledge Base",
+					displays: ["map", "MKBGraphtable", "MKBSharkGraphinfo"]
+				}
+			]
+		</display.easyButtons>
+
+            </properties>
+       </profile>
+
+       <profile>
+            <id>nmp</id>
+            <properties>
+                <stealth.classifier>nmp</stealth.classifier>
+                <app.context>thresher</app.context>
+                <app.title>Thresher</app.title>
+                <app.plugins>
+                    [
+                        'stealth.air',
+                        'stealth.bullseye',
+                        'stealth.geoarea',
+                        'stealth.legend',
+                        'stealth.query-edit',
+                        'stealth.route-search',
+                        'stealth.savedqueries',
+                        'stealth.search',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse.timelapseHistory',
+                        'stealth.mediator.air-timelapse',
+                        'stealth.mediator.savedqueries-timelapse'
+                    ]
+                </app.plugins>
+                <map.initLayers>[]</map.initLayers>
+                <map.extraLayers>[]</map.extraLayers>
+                <map.click.search.strategy>nearest-fixed-1</map.click.search.strategy>
+                <map.scaleLineUnits>["nautical", "metric", "imperial"]</map.scaleLineUnits>
+                <measure.maxPointsForLineString>2</measure.maxPointsForLineString>
+                <measure.maxMeasurementsAtOnce>1</measure.maxMeasurementsAtOnce>
+                <geoserver.url>/geoserver</geoserver.url>
+                <air.lookupCacheEnabled>false</air.lookupCacheEnabled>
+                <query-edit.enabled>
+                    {
+                        timelapse: [
+                            "detailed"
+                        ]
+                    }
+                </query-edit.enabled>
+            </properties>
+        </profile>
+        <profile>
+            <id>tfi</id>
+            <properties>
+                <stealth.classifier>tfi</stealth.classifier>
+                <app.context>tfi</app.context>
+                <app.title>Thresher</app.title>
+                <app.subTitle>Track Filters</app.subTitle>
+                <app.customModes>
+                {
+                    fvey: {
+                        header: "User-Requested-Authorizations",
+                        authorization: "U,C",
+                        banner: {
+                            text: "FVEY Mode",
+                            background: "#f16b35",
+                            color: "#ff0"
+                        }
+                    }
+
+                }
+                </app.customModes>
+                <app.plugins>
+                    [
+                        'stealth.air',
+                        'stealth.bullseye',
+                        'stealth.fvey-mode',
+                        'stealth.geoarea',
+                        'stealth.legend',
+                        'stealth.query-edit',
+                        'stealth.savedqueries',
+                        'stealth.search',
+                        'stealth.tfi',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse',
+                        'stealth.mediator.air-tfi',
+                        'stealth.mediator.air-timelapse'
+                        'stealth.mediator.savedqueries-timelapse'
+                    ]
+                </app.plugins>
+                <app.ignoreJmxPlugins>true</app.ignoreJmxPlugins>
+                <map.initLayers>[]</map.initLayers>
+                <map.extraLayers>[]</map.extraLayers>
+                <map.click.search.strategy>nearest-fixed-1</map.click.search.strategy>
+                <map.startupMapManagerOpen>false</map.startupMapManagerOpen>
+                <map.scaleLineUnits>["nautical", "metric", "imperial"]</map.scaleLineUnits>
+                <measure.maxPointsForLineString>2</measure.maxPointsForLineString>
+                <measure.maxMeasurementsAtOnce>1</measure.maxMeasurementsAtOnce>
+                <geoserver.url>/geoserver</geoserver.url>
+                <air.lookupCacheEnabled>false</air.lookupCacheEnabled>
+                <query-edit.enabled>
+                    {
+                        timelapse: [
+                            "detailed"
+                        ]
+                    }
+                </query-edit.enabled>
+            </properties>
+        </profile>
+        <profile>
+            <id>thresher-labels</id>
+            <properties>
+                <app.attributeLabels>
+                    {
+                        dtg: "Date/Time",
+                        lon: "Long",
+                        <!--NMP Popup-->
+                        activity: "Air Activity",
+                        aircraftType: "Type",
+                        airline: "Operator",
+                        alt: "Alt MSL",
+                        course: "TCRS",
+                        emergencyAlert: "Emer Alerts",
+                        flightNumber: "Flight Nr",
+                        icao3a: "IFF 3/A (ICAO)",
+                        identity: "L16 Identity",
+                        iffMode2: "IFF Mode 2",
+                        iffMode4: "IFF Mode 4",
+                        linkPPLI: "L16 PPLI",
+                        linkReportingUnit: "L16 Report Unit",
+                        linkSensorId: "L16 Sensor Id",
+                        linkTrackGUID: "L16 Track GUID",
+                        linkTrackNumber: "L16 TrkNum",
+                        state_ellipse_semMaj: "Pos Quality",
+                        state_ellipse_semMin: "Pos Quality",
+                        state_ellipse_t: "Pos Quality",
+                        speed: "GSPD",
+                        strength: "# in Formation",
+                        tailNumber: "Tail/Reg Nr",
+                        theaterNetworkMatches: "Theater-Net",
+                        thresherId: "Track Id",
+                        <!--Summary Tab-->
+                        aircraftTypeScore: "Type Score",
+                        altAvg: "Avg Alt MSL",
+                        altMax: "Max Alt MSL",
+                        altMin: "Min Alt MSL",
+                        climbRateMax: "Max Climb Rate",
+                        curviness: "Maneuver Index",
+                        distFlownStr: "Dist Flown",
+                        flightDurationStr: "Flight Duration",
+                        iffMode3: "IFF Mode 3",
+                        iffMode3EndDate: "IFF Mode 3 End",
+                        iffMode3StartDate: "IFF Mode 3 Start",
+                        linkIdentity: "L16 Identity",
+                        nTotalObs: "Total Obs",
+                        percentHighDensity: "High Density",
+                        percentOffRoute: "Off Route",
+                        speedAvg: "Avg GSPD",
+                        speedMax: "Max GSPD",
+                        speedMin: "Min GSPD",
+                        turnRateMax: "Max Turn Rate",
+                        <!--Flight Schedule Popup-->
+                        heading: "TCRS",
+                    }
+                </app.attributeLabels>
+            </properties>
+        </profile>
+        <profile>
+            <id>thresher-aircraft-activities</id>
+            <properties>
+                <air.aircraft.activities>
+                    ["NO STATEMENT",
+                    "RECONNAISSANCE",
+                    "OVER THE HORIZON TARGETING (OTHT)",
+                    "TRAINING",
+                    "LOGISTICS SUPPORT",
+                    "ANTISURFACE WARFARE",
+                    "ELECTRONIC WARFARE (EW)",
+                    "SURVEILLANCE",
+                    "SEARCH AND RESCUE (SAR)",
+                    "ESCORTING",
+                    "MINELAYING",
+                    "TRANSITING",
+                    "SPECIAL WEAPONS ATTACK",
+                    "INTRUDING",
+                    "ELECTRONIC WARFARE SUPPORT (ES)",
+                    "COMMUNICATIONS RELAY",
+                    "PATROL (OCEAN SURVEILLANCE)",
+                    "AIRLIFT (TRANSPORT)",
+                    "ANTISUBMARINE WARFARE (ASW)",
+                    "TOWING",
+                    "AIR ASSAULT",
+                    "INTERCEPTION",
+                    "ELECTRONIC ATTACK (EA)",
+                    "POLICING",
+                    "CONVENTIONAL ATTACK",
+                    "MEDICAL EVACUATION (MEDEVAC)",
+                    "MINE COUNTERMEASURES",
+                    "SEARCH",
+                    "REFUELING/TANKING",
+                    "INTERDICTION",
+                    "COMBAT AIR PATROL (CAP)",
+                    "FORWARD AIR CONTROLLER (FAC)",
+                    "VERY IMPORTANT PERSON (VIP) FLIGHT",
+                    "NONCOMBATANT OPERATIONS",
+                    "CLOSE AIR SUPPORT (CAS)",
+                    "AIRBORNE EARLY WARNING (AEW)",
+                    "GROUND ATTACK TACTICS (GAT)",
+                    "AIRBORNE COMMAND POST (ACP)",
+                    "RESCUE COMBAT AIR PATROL (RESCAP)",
+                    "SURFACE COMBAT AIR PATROL (SUCAP)",
+                    "SPOTTING",
+                    "STRIKE WARFARE",
+                    "SPECIAL",
+                    "HIJACK",
+                    "JAMMER",
+                    "TROOPLIFT",
+                    "XRAY",
+                    "ANTIAIR WARFARE (AAW)",
+                    "COMMAND AND CONTROL",
+                    "COUNTER-AIR WARFARE",
+                    "RETURN TO BASE (RTB)",
+                    "MINE WARFARE",
+                    "CHAFF LAYING",
+                    "VIDEO DATA LINKING (TARGETING)",
+                    "DIPPING",
+                    "ORBITING",
+                    "UNDER RECALL",
+                    "ENGAGING",
+                    "ENGAGING (PRIORITY KILL)",
+                    "INVESTIGATING",
+                    "CLEARED TO DROP",
+                    "INTERVENING",
+                    "DIVERTING",
+                    "AIR-TO-GROUND",
+                    "AIR-TO-AIR",
+                    "PRECISION BOMBING",
+                    "LASER DESIGNATION",
+                    "SHADOWING",
+                    "COVERING",
+                    "VISUAL IDENTIFICATION",
+                    "HIGH ENERGY LASING",
+                    "ELECTRONIC PROTECTION (EP)",
+                    "SPECIAL OPERATIONS",
+                    "NUCLEAR, BIOLOGICAL, CHEMICAL (NBC) OPERATIONS",
+                    "NUCLEAR OPERATIONS",
+                    "BIOLOGICAL OPERATIONS",
+                    "CHEMICAL OPERATIONS",
+                    "ABORTING MISSION",
+                    "STANDOFF OPERATIONS",
+                    "COMBAT SEARCH AND RESCUE (CSAR)"]
+                </air.aircraft.activities>
+            </properties>
+        </profile>
+        <profile>
+            <id>tcri</id>
+            <properties>
+                <!-- <stealth.classifier>tcri</stealth.classifier> -->
+                <app.plugins>
+                    [
+                        'stealth.air',
+                        'stealth.dcm',
+                        'stealth.drawroute',
+                        'stealth.histogram',
+                        'stealth.routeanalysis',
+                        'stealth.static',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse',
+                        'stealth.mediator.air-timelapse',
+                        'stealth.mediator.histogram-timelapse'
+                    ]
+                </app.plugins>
+                <map.countriesOff>true</map.countriesOff>
+                <map.extraLayers>[]</map.extraLayers>
+                <geoserver.url>/geoserver</geoserver.url>
+            </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.ccri</groupId>
+                    <artifactId>stealth-tcri-plugin</artifactId>
+                    <version>1.0</version>
+                </dependency>
+            </dependencies>
+
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources-tcri</directory>
+                        <filtering>true</filtering>
+                    </resource>
+                </resources>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <version>2.4.3</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>shade</goal>
+                                </goals>
+                                <configuration>
+                                    <filters>
+                                        <filter>
+                                            <artifact>com.ccri:stealth-tcri-plugin</artifact>
+                                            <includes>
+                                                <include>WEB-INF/classes/appContext.xml</include>
+                                                <include>WEB-INF/classes/spring-security.xml</include>
+                                                <include>com/ccri/**</include>
+                                            </includes>
+                                        </filter>
+                                        <filter>
+                                            <artifact>*:*</artifact>
+                                            <excludes>
+                                                <exclude>META-INF/*.SF</exclude>
+                                                <exclude>META-INF/*.DSA</exclude>
+                                                <exclude>META-INF/*.RSA</exclude>
+                                            </excludes>
+                                        </filter>
+                                        <filter>
+                                            <artifact>${project.groupId}:${project.artifactId}</artifact>
+                                            <excludes>
+                                                <exclude>**/appContext.xml</exclude>
+                                                <exclude>**/spring-security.xml</exclude>
+                                            </excludes>
+                                        </filter>
+                                    </filters>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>optix</id>
+            <properties>
+                <app.plugins>
+                    [
+                        'stealth.drawroute',
+                        'stealth.geoarea',
+                        'stealth.histogram',
+                        'stealth.hover',
+                        'stealth.legend',
+                        'stealth.route-search',
+                        'stealth.routeanalysis',
+                        'stealth.search',
+                        'stealth.static',
+                        'stealth.timelapse',
+                        'stealth.geo.timelapse',
+                        'stealth.geo.timelapse.timelapseHistory',
+                        'stealth.mediator.histogram-static',
+                        'stealth.mediator.histogram-timelapse'
+                    ]
+                </app.plugins>
+            </properties>
+        </profile>
+
+        <!-- Profiles for always-up demos deployed by CI -->
+        <profile>
+            <id>jenkins-jboss-ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jboss.as.plugins</groupId>
+                        <artifactId>jboss-as-maven-plugin</artifactId>
+                        <version>7.7.Final</version>
+                        <executions>
+                            <execution>
+                                <phase>install</phase>
+                                <goals>
+                                    <goal>deploy-only</goal>
+                                </goals>
+                                <configuration>
+                                    <hostname>stealth.ccri.com</hostname>
+                                    <port>9999</port>
+                                    <username>root</username>
+                                    <password>toor</password>
+                                    <afterDeployment>
+                                        <commands>
+                                            <command>:shutdown(restart=true)</command>
+                                        </commands>
+                                    </afterDeployment>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            <properties>
+                <geocoder.urlResolvers>
+                    <![CDATA[
+                    [{
+                        urlTemplate: "cors/https://geocode.xyz/?region=NorthAmerica&locate={{searchTerm}}&json=1",
+                        formatDescription: ["Address"],
+                        geometryStringFormat: "GEOCODE_XYZ_JSON",
+                        order: "012"
+                    }]
+                    ]]>
+                </geocoder.urlResolvers>
+            </properties>
+        </profile>
+
+        <!-- The remaining profiles are auto-activated based on OS.  No reason to explicitly activate them. -->
+        <profile>
+            <id>macos-x86</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>darwin-x86</nodejs.classifier>
+                <phantomjs.classifier>macosx</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>macos-x64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>darwin-x64</nodejs.classifier>
+                <phantomjs.classifier>macosx</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>win-x86</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>x86</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>win-x86</nodejs.classifier>
+                <phantomjs.classifier>windows</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>win-x64</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>win-x64</nodejs.classifier>
+                <phantomjs.classifier>windows</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-x86</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>x86</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>linux-x86</nodejs.classifier>
+                <phantomjs.classifier>linux-x86_64</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-x86-386</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>i386</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>linux-x86</nodejs.classifier>
+                <phantomjs.classifier>linux-i686</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-x86-686</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>i686</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>linux-x86</nodejs.classifier>
+                <phantomjs.classifier>linux-i686</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-x64-x86_64</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>linux-x64</nodejs.classifier>
+                <phantomjs.classifier>linux-x86_64</phantomjs.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux-x64-amd64</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <nodejs.classifier>linux-x64</nodejs.classifier>
+                <phantomjs.classifier>linux-x86_64</phantomjs.classifier>
+            </properties>
+        </profile>
+    </profiles>
+</project>
