@@ -39,6 +39,8 @@ RUN cp lib/hadoop-annotations-*.jar /usr/share/geoserver/webapps/geoserver/WEB-I
 COPY apps/stealth-webapp-3.2.0-20181019.232537-10.war /opt/
 RUN mkdir stealth && unzip -d stealth /opt/stealth-webapp-3.2.0-20181019.232537-10.war
 RUN cp -r stealth/ /usr/share/geoserver/webapps/
+COPY config/reference.conf /usr/share/geoserver/webapps/stealth
+RUN cp /usr/share/geoserver/webapps/stealth/reference.conf /usr/share/geoserver/webapps/stealth/WEB-INF/classes/reference.conf
 
 # Configuration steps
 RUN cp conf/hbase-site.xml /usr/share/geoserver/webapps/geoserver/WEB-INF/classes
