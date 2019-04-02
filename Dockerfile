@@ -36,6 +36,8 @@ RUN cp lib/hadoop-annotations-*.jar /usr/share/geoserver/webapps/geoserver/WEB-I
     && cp lib/hbase-protocol-*.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
 
 # Stealth steps
+RUN wget http://central.maven.org/maven2/org/geomesa/geoserver/geomesa-gs-wfs/2.2.1/geomesa-gs-wfs-$GEOMESA_VERSION.jar \
+    && cp geomesa-gs-wfs-$GEOMESA_VERSION.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
 COPY apps/stealth-webapp-3.2.0-20181019.232537-10.war /opt/
 RUN mkdir stealth && unzip -d stealth /opt/stealth-webapp-3.2.0-20181019.232537-10.war
 RUN cp -r stealth/ /usr/share/geoserver/webapps/
