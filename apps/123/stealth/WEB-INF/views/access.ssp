@@ -1,6 +1,0 @@
-<%@ var userCn: String %>
-<html>
-    <body>
-        <h2>[${ scala.xml.Utility.escape(userCn) }] has insufficient privileges to access this page.</h2>
-    </body>
-</html>

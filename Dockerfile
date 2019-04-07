@@ -3,8 +3,8 @@ MAINTAINER zef.delgadillo@gmail.com
 
 ENV GEOSERVER_HOME="/usr/share/geoserver"
 ENV GEOSERVER_DATA_DIR="/usr/share/geoserver/data_dir"
-ENV GEOSERVER_VERSION="2.14.2"
-ENV GEOMESA_VERSION="2.2.1"
+ENV GEOSERVER_VERSION="2.12.2"
+ENV GEOMESA_VERSION="2.0.2"
 
 RUN wget http://sourceforge.net/projects/geoserver/files/GeoServer/$GEOSERVER_VERSION/geoserver-$GEOSERVER_VERSION-bin.zip \
     && unzip geoserver-$GEOSERVER_VERSION-bin.zip \
@@ -39,14 +39,11 @@ RUN cp lib/hadoop-annotations-*.jar /usr/share/geoserver/webapps/geoserver/WEB-I
 # WFS Extension
 RUN wget http://sourceforge.net/projects/geoserver/files/GeoServer/$GEOSERVER_VERSION/extensions/geoserver-$GEOSERVER_VERSION-wps-plugin.zip \
     && unzip geoserver-$GEOSERVER_VERSION-wps-plugin.zip -d /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
-RUN wget http://central.maven.org/maven2/org/geomesa/geoserver/geomesa-gs-wfs/2.2.1/geomesa-gs-wfs-$GEOMESA_VERSION.jar \
-    && cp geomesa-gs-wfs-$GEOMESA_VERSION.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib \
-    && wget http://central.maven.org/maven2/org/tukaani/xz/1.0/xz-1.0.jar \
-    && cp xz-1.0.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib \
-    && wget http://central.maven.org/maven2/org/typelevel/scalap/2.11.7/scalap-2.11.7.jar \
-    && cp scalap-2.11.7.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib \
-    && wget http://central.maven.org/maven2/io/netty/netty-handler/4.0.41.Final/netty-handler-4.0.41.Final.jar \
-    && cp netty-handler-4.0.41.Final.jar /usr/share/geoserver/webapps/geoserver/WEB-INF/lib
+COPY apps/geomesa-gs-wfs-2.0.2-install.tar.gz /opt/
+RUN mkdir -p wfs-install \
+    && tar xvf /opt/geomesa-gs-wfs-2.0.2-install.tar.gz -C wfs-install \
+    && mv ./wfs-install/* /usr/share/geoserver/webapps/geoserver/WEB-INF/lib \
+    && rm -rf ./wfs-install
 
 COPY apps/stealth-webapp-3.2.0-20181019.232537-10.war /opt/
 RUN mkdir stealth && unzip -d stealth /opt/stealth-webapp-3.2.0-20181019.232537-10.war
