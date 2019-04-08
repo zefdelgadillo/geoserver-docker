@@ -1,0 +1,18 @@
+<configuration>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.initLimit</name>
+    <value>20</value>
+  </property>
+  <property>
+    <name>hbase.rootdir</name>
+    <value>hdfs://geomesa-hbase-m:8020/hbase</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>geomesa-hbase-m,geomesa-hbase-w-0,geomesa-hbase-w-1</value>
+  </property>
+</configuration>
